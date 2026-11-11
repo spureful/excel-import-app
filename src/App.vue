@@ -1,11 +1,12 @@
 <script setup>
-import { ref } from 'vue'
+import { computed, ref } from 'vue'
 import { ElMessage } from 'element-plus'
 import { UploadFilled, Download } from '@element-plus/icons-vue'
 import { useExcelImport } from './composables/useExcelImport'
-import { PROGRAM_LABEL_BY_CODE } from './constants'
+import { displayValue, listOptions } from './constants'
 
 const {
+  columns,
   records,
   errors,
   fileName,
@@ -19,6 +20,26 @@ const {
 } = useExcelImport()
 
 const uploadRef = ref(null)
+
+const hint = computed(() => {
+  const parts = []
+  const required = columns
+    .filter((column) => column.required)
+    .map((column) => `«${column.header}»`)
+  if (required.length) {
+    parts.push(
+      `Обязательные поля отмечены красным заголовком: ${required.join(', ')}.`
+    )
+  }
+  const lists = columns
+    .filter((column) => column.list?.length)
+    .map((column) => {
+      const labels = listOptions(column).map((option) => option.label)
+      return `«${column.header}» (${labels.join(', ')})`
+    })
+  if (lists.length) parts.push(`Значения из списка: ${lists.join('; ')}.`)
+  return parts.join(' ')
+})
 
 async function onTemplate() {
   try {
@@ -55,10 +76,7 @@ async function onFileChange(uploadFile) {
 
     <el-card class="block" shadow="never">
       <template #header>1. Скачайте шаблон</template>
-      <p class="hint">
-        Поле «ид» обязательно (красный заголовок). Имя можно ввести только
-        после заполнения ид. Программа выбирается из списка.
-      </p>
+      <p class="hint">{{ hint }}</p>
       <el-button type="primary" :icon="Download" :loading="loading" @click="onTemplate">
         Скачать шаблон
       </el-button>
@@ -121,6 +139,7 @@ async function onFileChange(uploadFile) {
         <h3>Ошибки</h3>
         <el-table :data="errors" border size="small" max-height="260">
           <el-table-column prop="row" label="Строка Excel" width="130" />
+          <el-table-column prop="header" label="Колонка" width="160" />
           <el-table-column prop="message" label="Описание" />
         </el-table>
       </template>
@@ -134,16 +153,19 @@ async function onFileChange(uploadFile) {
         empty-text="Нет корректных строк"
       >
         <el-table-column type="index" label="№" width="70" />
-        <el-table-column prop="id" label="ид" width="140" />
-        <el-table-column prop="name" label="имя" min-width="200" />
-        <el-table-column label="программа" width="170">
+        <el-table-column
+          v-for="column in columns"
+          :key="column.key"
+          :label="column.header"
+          :min-width="Math.max(120, (column.width ?? 18) * 8)"
+        >
           <template #default="{ row }">
-            <el-tag v-if="row.program" effect="plain">
-              {{ PROGRAM_LABEL_BY_CODE[row.program] }}
+            <el-tag v-if="column.list && row[column.key] != null" effect="plain">
+              {{ displayValue(column, row[column.key]) }}
             </el-tag>
+            <template v-else>{{ displayValue(column, row[column.key]) }}</template>
           </template>
         </el-table-column>
-        <el-table-column prop="program" label="код" width="150" />
       </el-table>
     </el-card>
   </div>

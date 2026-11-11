@@ -1,8 +1,9 @@
 import { ref, shallowRef, computed } from 'vue'
+import { COLUMNS } from '../constants'
 import { buildTemplateBlob, parseExcelFile } from '../utils/excel'
 import { downloadBlob } from '../utils/download'
 
-export function useExcelImport() {
+export function useExcelImport(columns = COLUMNS) {
   // shallowRef — для ~2000 строк не нужна глубокая реактивность
   const records = shallowRef([])
   const errors = shallowRef([])
@@ -15,7 +16,7 @@ export function useExcelImport() {
   async function downloadTemplate() {
     loading.value = true
     try {
-      const blob = await buildTemplateBlob()
+      const blob = await buildTemplateBlob(columns)
       downloadBlob(blob, 'шаблон.xlsx')
     } finally {
       loading.value = false
@@ -29,7 +30,7 @@ export function useExcelImport() {
     errors.value = []
     fileName.value = file.name
     try {
-      const result = await parseExcelFile(file)
+      const result = await parseExcelFile(file, columns)
       records.value = result.items
       errors.value = result.errors
     } catch (e) {
@@ -55,6 +56,7 @@ export function useExcelImport() {
   }
 
   return {
+    columns,
     records,
     errors,
     fileName,
